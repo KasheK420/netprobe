@@ -213,5 +213,27 @@ def report(session_id, output):
     console.print(f"[bold green]Report saved: {out_path.absolute()}[/bold green]")
 
 
+@cli.command()
+@click.option("--host", default="127.0.0.1", help="Host to bind to")
+@click.option("--port", "-p", default=5555, type=int, help="Port to listen on")
+@click.option("--no-browser", is_flag=True, help="Don't auto-open browser")
+def ui(host, port, no_browser):
+    """Launch web UI dashboard."""
+    from .web import run_ui
+    import webbrowser
+
+    url = f"http://{host}:{port}"
+    console.print()
+    console.print(f"[bold blue]NetProbe Web UI[/bold blue]")
+    console.print(f"Open [link={url}]{url}[/link] in your browser")
+    console.print("[dim]Press Ctrl+C to stop[/dim]")
+    console.print()
+
+    if not no_browser:
+        webbrowser.open(url)
+
+    run_ui(host=host, port=port)
+
+
 if __name__ == "__main__":
     cli()

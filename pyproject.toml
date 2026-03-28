@@ -26,6 +26,8 @@ dependencies = [
     "matplotlib>=3.7",
     "fpdf2>=2.7",
     "rich>=13.0",
+    "flask>=3.0",
+    "flask-socketio>=5.3",
 ]
 
 [project.scripts]

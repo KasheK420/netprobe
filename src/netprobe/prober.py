@@ -20,6 +20,7 @@ class Prober:
         self._recent_rtts: dict[str, list[float]] = {}
         self._lock = threading.Lock()
         self._stats = {"sent": 0, "lost": 0, "fast_mode_switches": 0}
+        self._active_targets: dict[str, str] = {}
 
     @property
     def interval(self) -> float:
@@ -34,10 +35,27 @@ class Prober:
 
     def start(self) -> None:
         targets = self.config.all_targets
+        with self._lock:
+            self._active_targets = dict(targets)
         for name, ip in targets.items():
             t = threading.Thread(target=self._probe_loop, args=(name, ip), daemon=True)
             t.start()
             self._threads.append(t)
+
+    @property
+    def active_targets(self) -> dict[str, str]:
+        with self._lock:
+            return dict(self._active_targets)
+
+    def add_target(self, name: str, ip: str) -> bool:
+        with self._lock:
+            if name in self._active_targets:
+                return False
+            self._active_targets[name] = ip
+        t = threading.Thread(target=self._probe_loop, args=(name, ip), daemon=True)
+        t.start()
+        self._threads.append(t)
+        return True
 
     def stop(self) -> None:
         self._stop.set()

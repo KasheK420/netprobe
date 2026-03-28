@@ -203,6 +203,7 @@
 
         .badge-valve { background: #dbeafe; color: var(--accent); }
         .badge-general { background: #f1f5f9; color: var(--muted); }
+        .badge-custom { background: #fef3c7; color: #b45309; }
 
         .sessions-card h3 {
             display: flex;
@@ -271,10 +272,65 @@
         .tab.active { background: var(--primary); color: white; }
         .tab:hover:not(.active) { background: var(--bg); }
 
+        .add-target-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .add-target-bar label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary);
+            white-space: nowrap;
+        }
+
+        .add-target-bar input {
+            padding: 7px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .add-target-bar input:focus { border-color: var(--accent); }
+
+        .add-target-bar input[name="targetName"] { width: 160px; }
+        .add-target-bar input[name="targetIp"] { width: 150px; }
+
+        .btn-add {
+            padding: 7px 18px;
+            border: none;
+            border-radius: 6px;
+            background: var(--accent);
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-add:hover { background: #2563eb; }
+        .btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .add-target-msg {
+            font-size: 12px;
+            margin-left: 8px;
+            transition: opacity 0.3s;
+        }
+
         @media (max-width: 768px) {
             .container { padding: 16px; }
             .metrics-grid { grid-template-columns: repeat(2, 1fr); }
             .elapsed { font-size: 22px; }
+            .add-target-bar { flex-wrap: wrap; }
+            .add-target-bar input { width: 100% !important; }
         }
     </style>
 </head>
@@ -319,6 +375,15 @@
                     <div class="metric-label">Fast Mode Switches</div>
                     <div class="metric-value color-neutral" id="metricFast">-</div>
                 </div>
+            </div>
+
+            <!-- Add target bar -->
+            <div class="add-target-bar" id="addTargetBar">
+                <label>Add Target:</label>
+                <input type="text" name="targetName" id="targetName" placeholder="e.g. FACEIT London" autocomplete="off">
+                <input type="text" name="targetIp" id="targetIp" placeholder="e.g. 178.32.58.1" autocomplete="off">
+                <button class="btn-add" id="btnAddTarget" onclick="addTarget()">Add</button>
+                <span class="add-target-msg" id="addTargetMsg"></span>
             </div>
 
             <div class="chart-card">
@@ -390,6 +455,8 @@
         ];
         const chartDatasets = {};
         const valveTargets = ['Valve Frankfurt', 'Valve Warsaw'];
+        const generalTargets = ['Google DNS', 'Cloudflare DNS', 'OpenDNS'];
+        const customTargets = new Set();
 
         function initChart() {
             const ctx = document.getElementById('latencyChart').getContext('2d');
@@ -441,6 +508,13 @@
         }
 
         // Build a table row using DOM (safe, no innerHTML)
+        function getTargetType(name) {
+            if (valveTargets.includes(name)) return 'valve';
+            if (customTargets.has(name)) return 'custom';
+            if (!generalTargets.includes(name) && !valveTargets.includes(name)) return 'custom';
+            return 'general';
+        }
+
         function createTargetRow(name, type, lastRtt, avgRtt, lossPct, pings, isValve) {
             const tr = document.createElement('tr');
             if (isValve) tr.className = 'valve-row';
@@ -452,8 +526,17 @@
 
             const tdType = document.createElement('td');
             const badge = document.createElement('span');
-            badge.className = isValve ? 'target-badge badge-valve' : 'target-badge badge-general';
-            badge.textContent = isValve ? 'VALVE' : 'GENERAL';
+            const tType = getTargetType(name);
+            if (tType === 'valve') {
+                badge.className = 'target-badge badge-valve';
+                badge.textContent = 'VALVE';
+            } else if (tType === 'custom') {
+                badge.className = 'target-badge badge-custom';
+                badge.textContent = 'CUSTOM';
+            } else {
+                badge.className = 'target-badge badge-general';
+                badge.textContent = 'GENERAL';
+            }
             tdType.appendChild(badge);
 
             const tdRtt = document.createElement('td');
@@ -775,6 +858,60 @@
             table.appendChild(tbodyDetail);
             content.appendChild(table);
         }
+
+        async function addTarget() {
+            const nameInput = document.getElementById('targetName');
+            const ipInput = document.getElementById('targetIp');
+            const msg = document.getElementById('addTargetMsg');
+            const btn = document.getElementById('btnAddTarget');
+
+            const name = nameInput.value.trim();
+            const ip = ipInput.value.trim();
+
+            if (!name || !ip) {
+                msg.textContent = 'Fill in both fields';
+                msg.style.color = 'var(--red)';
+                return;
+            }
+
+            btn.disabled = true;
+            msg.textContent = '';
+
+            try {
+                const res = await fetch('/api/targets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, ip: ip })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    customTargets.add(name);
+                    msg.textContent = name + ' added!';
+                    msg.style.color = 'var(--green)';
+                    nameInput.value = '';
+                    ipInput.value = '';
+                    // Auto-clear message
+                    setTimeout(function() { msg.textContent = ''; }, 3000);
+                } else {
+                    msg.textContent = data.error || 'Failed';
+                    msg.style.color = 'var(--red)';
+                }
+            } catch (e) {
+                msg.textContent = 'Connection error';
+                msg.style.color = 'var(--red)';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Allow Enter key in IP input to submit
+        document.getElementById('targetIp').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') addTarget();
+        });
+        document.getElementById('targetName').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') document.getElementById('targetIp').focus();
+        });
 
         // Init
         initChart();

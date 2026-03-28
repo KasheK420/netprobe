@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from datetime import datetime, timezone
 
-from flask import Flask, render_template, jsonify, send_file
+from flask import Flask, render_template, jsonify, send_file, request
 from flask_socketio import SocketIO
 
 from ..collector import Collector, Measurement
@@ -98,6 +98,38 @@ def api_stop():
     state["start_time"] = None
 
     return jsonify({"session_id": session_id})
+
+
+@app.route("/api/targets", methods=["POST"])
+def api_add_target():
+    if not state["running"] or not state["prober"]:
+        return jsonify({"error": "Not running. Start monitoring first."}), 400
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    ip = (data.get("ip") or "").strip()
+
+    if not name or not ip:
+        return jsonify({"error": "Both name and ip are required"}), 400
+
+    # Basic IP validation
+    parts = ip.split(".")
+    if len(parts) != 4 or not all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
+        return jsonify({"error": "Invalid IP address"}), 400
+
+    added = state["prober"].add_target(name, ip)
+    if not added:
+        return jsonify({"error": f"Target '{name}' already exists"}), 409
+
+    return jsonify({"ok": True, "name": name, "ip": ip})
+
+
+@app.route("/api/targets")
+def api_targets():
+    if not state["running"] or not state["prober"]:
+        return jsonify([])
+    targets = state["prober"].active_targets
+    return jsonify([{"name": n, "ip": ip} for n, ip in targets.items()])
 
 
 @app.route("/api/sessions")

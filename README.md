@@ -79,10 +79,10 @@ netprobe report 1 -o custom_name.pdf
 ### Valve CS2 Servers
 | Name | IP |
 |------|-----|
-| Valve Vienna | 155.133.226.71 |
 | Valve Frankfurt | 155.133.248.34 |
 | Valve Warsaw | 185.25.182.1 |
-| Valve Stockholm | 155.133.254.34 |
+
+> **Tip:** Many Valve relay servers block ICMP. Add extra targets with `-t` if you know your CS2 server IP.
 
 ### General Internet
 | Name | IP |

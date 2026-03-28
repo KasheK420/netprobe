@@ -3,10 +3,8 @@
 from dataclasses import dataclass, field
 
 VALVE_TARGETS: dict[str, str] = {
-    "Valve Vienna": "155.133.226.71",
     "Valve Frankfurt": "155.133.248.34",
     "Valve Warsaw": "185.25.182.1",
-    "Valve Stockholm": "155.133.254.34",
 }
 
 GENERAL_TARGETS: dict[str, str] = {

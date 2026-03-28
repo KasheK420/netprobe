@@ -653,11 +653,21 @@
         async function stopProbe() {
             const btn = document.getElementById('btnStop');
             btn.disabled = true;
+            btn.textContent = 'Stopping...';
             try {
                 const res = await fetch('/api/stop', { method: 'POST' });
-                if (res.ok) setRunningState(false);
+                const data = await res.json();
+                if (res.ok) {
+                    setRunningState(false);
+                    // Auto-download PDF report
+                    if (data.session_id) {
+                        btn.textContent = 'Generating PDF...';
+                        window.location.href = '/api/sessions/' + data.session_id + '/report';
+                    }
+                }
             } finally {
                 btn.disabled = false;
+                btn.textContent = 'Stop';
             }
         }
 
